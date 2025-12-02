@@ -11,6 +11,9 @@ import ServerConsole from '@/components/ServerConsole';
 import FileManager from '@/components/FileManager';
 import AuthModal from '@/components/AuthModal';
 import TopUpModal from '@/components/TopUpModal';
+import AddCoOwnerModal from '@/components/AddCoOwnerModal';
+import OnlinePlayers from '@/components/OnlinePlayers';
+import BackupScheduler from '@/components/BackupScheduler';
 import {
   AreaChart,
   Area,
@@ -68,7 +71,12 @@ const Index = () => {
   const [username, setUsername] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [showAddCoOwnerModal, setShowAddCoOwnerModal] = useState(false);
   const [balance, setBalance] = useState(249.99);
+  const [coOwners, setCoOwners] = useState([
+    { id: '1', name: 'Alice Smith', email: 'alice@example.com', permissions: ['console', 'files', 'settings'] },
+    { id: '2', name: 'Bob Johnson', email: 'bob@example.com', permissions: ['console', 'files'] },
+  ]);
   const [paymentHistory, setPaymentHistory] = useState([
     { id: '1', date: 'Dec 1, 2024', amount: 29.99, method: 'Credit Card', status: 'Paid' as const },
     { id: '2', date: 'Nov 1, 2024', amount: 29.99, method: 'PayPal', status: 'Paid' as const },
@@ -114,6 +122,20 @@ const Index = () => {
     };
     
     setPaymentHistory([newPayment, ...paymentHistory]);
+  };
+
+  const handleAddCoOwner = (email: string, name: string, permissions: string[]) => {
+    const newCoOwner = {
+      id: String(Date.now()),
+      name,
+      email,
+      permissions,
+    };
+    setCoOwners([...coOwners, newCoOwner]);
+  };
+
+  const handleRemoveCoOwner = (coOwnerId: string) => {
+    setCoOwners(coOwners.filter(co => co.id !== coOwnerId));
   };
 
   const toggleServerStatus = (serverId: string) => {
@@ -175,8 +197,10 @@ const Index = () => {
   const menuItems = [
     { icon: 'LayoutDashboard', label: 'Dashboard', tab: 'dashboard' },
     { icon: 'Server', label: 'Servers', tab: 'servers' },
+    { icon: 'Users', label: 'Players', tab: 'players' },
     { icon: 'Terminal', label: 'Console', tab: 'console' },
     { icon: 'FolderTree', label: 'Files', tab: 'files' },
+    { icon: 'Archive', label: 'Backups', tab: 'backups' },
     { icon: 'BarChart3', label: 'Monitoring', tab: 'analytics' },
     { icon: 'Wallet', label: 'Billing', tab: 'billing' },
     { icon: 'Globe', label: 'Domains', tab: 'domains' },
@@ -242,6 +266,12 @@ const Index = () => {
           onClose={() => setShowTopUpModal(false)}
           currentBalance={balance}
           onTopUp={handleTopUp}
+        />
+
+        <AddCoOwnerModal
+          isOpen={showAddCoOwnerModal}
+          onClose={() => setShowAddCoOwnerModal(false)}
+          onAdd={handleAddCoOwner}
         />
 
         <main className="flex-1 ml-64 p-8 overflow-auto">
@@ -383,7 +413,46 @@ const Index = () => {
                 ))}
               </div>
 
-              <ServerConsole
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <ServerConsole
+                    serverId={selectedServer.id}
+                    serverName={selectedServer.name}
+                    isRunning={selectedServer.status === 'running'}
+                  />
+                </div>
+                <div>
+                  <OnlinePlayers
+                    serverId={selectedServer.id}
+                    serverName={selectedServer.name}
+                    isRunning={selectedServer.status === 'running'}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'players' && (
+            <>
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground mb-2">Online Players</h2>
+                <p className="text-muted-foreground">Мониторинг игроков в реальном времени</p>
+              </div>
+
+              <div className="mb-6 flex gap-2">
+                {servers.map((server) => (
+                  <Button
+                    key={server.id}
+                    variant={selectedServer.id === server.id ? 'default' : 'outline'}
+                    onClick={() => setSelectedServer(server)}
+                    size="sm"
+                  >
+                    {server.name}
+                  </Button>
+                ))}
+              </div>
+
+              <OnlinePlayers
                 serverId={selectedServer.id}
                 serverName={selectedServer.name}
                 isRunning={selectedServer.status === 'running'}
@@ -412,6 +481,33 @@ const Index = () => {
               </div>
 
               <FileManager serverId={selectedServer.id} />
+            </>
+          )}
+
+          {activeTab === 'backups' && (
+            <>
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground mb-2">Backup Management</h2>
+                <p className="text-muted-foreground">Автоматические бэкапы по расписанию</p>
+              </div>
+
+              <div className="mb-6 flex gap-2">
+                {servers.map((server) => (
+                  <Button
+                    key={server.id}
+                    variant={selectedServer.id === server.id ? 'default' : 'outline'}
+                    onClick={() => setSelectedServer(server)}
+                    size="sm"
+                  >
+                    {server.name}
+                  </Button>
+                ))}
+              </div>
+
+              <BackupScheduler
+                serverId={selectedServer.id}
+                serverName={selectedServer.name}
+              />
             </>
           )}
 
@@ -693,42 +789,47 @@ const Index = () => {
                 </Card>
 
                 <Card className="p-6 bg-card border-border">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Совладельцы (Co-Owners)</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Предоставьте полный доступ другим пользователям</p>
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-                          <Icon name="User" size={20} className="text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Alice Smith</p>
-                          <p className="text-xs text-muted-foreground">alice@example.com</p>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="destructive">
-                        <Icon name="UserMinus" size={16} />
-                      </Button>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Совладельцы (Co-Owners)</h3>
+                      <p className="text-sm text-muted-foreground">Пригласите пользователей по email для совместного управления</p>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-secondary/20 rounded-full flex items-center justify-center">
-                          <Icon name="User" size={20} className="text-secondary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Bob Johnson</p>
-                          <p className="text-xs text-muted-foreground">bob@example.com</p>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="destructive">
-                        <Icon name="UserMinus" size={16} />
-                      </Button>
-                    </div>
+                    <Button onClick={() => setShowAddCoOwnerModal(true)}>
+                      <Icon name="UserPlus" size={16} className="mr-2" />
+                      Add Co-Owner
+                    </Button>
                   </div>
-                  <Button variant="outline">
-                    <Icon name="UserPlus" size={16} className="mr-2" />
-                    Add Co-Owner
-                  </Button>
+                  
+                  <div className="space-y-3">
+                    {coOwners.map((coOwner) => (
+                      <div key={coOwner.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border hover:border-primary/50 transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">{coOwner.name.charAt(0)}</span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{coOwner.name}</p>
+                            <p className="text-sm text-muted-foreground">{coOwner.email}</p>
+                            <div className="flex gap-1 mt-1">
+                              {coOwner.permissions.slice(0, 3).map((perm) => (
+                                <Badge key={perm} variant="outline" className="text-xs">
+                                  {perm}
+                                </Badge>
+                              ))}
+                              {coOwner.permissions.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{coOwner.permissions.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="destructive" onClick={() => handleRemoveCoOwner(coOwner.id)}>
+                          <Icon name="UserMinus" size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </Card>
 
                 <Card className="p-6 bg-card border-border">
