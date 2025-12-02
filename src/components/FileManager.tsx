@@ -15,6 +15,7 @@ interface FileItem {
   size?: string;
   modified: string;
   content?: string;
+  children?: FileItem[];
 }
 
 interface FileManagerProps {
@@ -22,19 +23,60 @@ interface FileManagerProps {
 }
 
 const mockFiles: FileItem[] = [
-  { id: '1', name: 'server.properties', type: 'file', size: '2.4 KB', modified: '2 hours ago', content: 'server-port=25565\nmax-players=20\ndifficulty=normal' },
-  { id: '2', name: 'plugins', type: 'folder', modified: '1 day ago' },
-  { id: '3', name: 'world', type: 'folder', modified: '3 hours ago' },
-  { id: '4', name: 'config.yml', type: 'file', size: '1.2 KB', modified: '5 hours ago', content: 'version: 1.0\nserver-name: My Server\nauto-save: true' },
-  { id: '5', name: 'whitelist.json', type: 'file', size: '0.5 KB', modified: '1 day ago', content: '[\n  {"uuid": "123", "name": "Steve"}\n]' },
-  { id: '6', name: 'logs', type: 'folder', modified: '30 min ago' },
+  { id: '1', name: 'server.properties', type: 'file', size: '2.4 KB', modified: '2 hours ago', content: 'server-port=25565\nmax-players=20\ndifficulty=normal\nmotd=Welcome to my server!' },
+  { 
+    id: '2', 
+    name: 'plugins', 
+    type: 'folder', 
+    modified: '1 day ago',
+    children: [
+      { id: '2-1', name: 'Essentials.jar', type: 'file', size: '512 KB', modified: '1 day ago' },
+      { id: '2-2', name: 'WorldEdit.jar', type: 'file', size: '1.2 MB', modified: '3 days ago' },
+      { id: '2-3', name: 'Vault.jar', type: 'file', size: '256 KB', modified: '1 week ago' },
+    ]
+  },
+  { 
+    id: '3', 
+    name: 'world', 
+    type: 'folder', 
+    modified: '3 hours ago',
+    children: [
+      { id: '3-1', name: 'level.dat', type: 'file', size: '4.2 KB', modified: '3 hours ago' },
+      { id: '3-2', name: 'region', type: 'folder', modified: '3 hours ago', children: [] },
+      { id: '3-3', name: 'playerdata', type: 'folder', modified: '1 hour ago', children: [] },
+    ]
+  },
+  { id: '4', name: 'config.yml', type: 'file', size: '1.2 KB', modified: '5 hours ago', content: 'version: 1.0\nserver-name: My Server\nauto-save: true\nbackup-interval: 3600' },
+  { id: '5', name: 'whitelist.json', type: 'file', size: '0.5 KB', modified: '1 day ago', content: '[\n  {"uuid": "550e8400-e29b-41d4-a716-446655440000", "name": "Steve"},\n  {"uuid": "6fa459ea-ee8a-3ca4-894e-db77e160355e", "name": "Alex"}\n]' },
+  { 
+    id: '6', 
+    name: 'logs', 
+    type: 'folder', 
+    modified: '30 min ago',
+    children: [
+      { id: '6-1', name: 'latest.log', type: 'file', size: '124 KB', modified: '5 min ago' },
+      { id: '6-2', name: '2024-12-01.log.gz', type: 'file', size: '45 KB', modified: '1 day ago' },
+    ]
+  },
+  {
+    id: '7',
+    name: 'backups',
+    type: 'folder',
+    modified: '1 hour ago',
+    children: [
+      { id: '7-1', name: 'backup_2024-12-02.zip', type: 'file', size: '256 MB', modified: '1 hour ago' },
+      { id: '7-2', name: 'backup_2024-12-01.zip', type: 'file', size: '248 MB', modified: '1 day ago' },
+    ]
+  },
 ];
 
 const FileManager = ({ serverId }: FileManagerProps) => {
   const [files, setFiles] = useState<FileItem[]>(mockFiles);
+  const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+
 
   const handleDelete = (fileId: string) => {
     setFiles(files.filter(f => f.id !== fileId));
@@ -56,17 +98,85 @@ const FileManager = ({ serverId }: FileManagerProps) => {
     }
   };
 
-  const handleUpload = () => {
-    const newFile: FileItem = {
-      id: String(Date.now()),
-      name: 'newfile.txt',
-      type: 'file',
-      size: '0 KB',
-      modified: 'Just now',
-      content: ''
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const newFile: FileItem = {
+        id: String(Date.now()),
+        name: file.name,
+        type: 'file',
+        size: formatFileSize(file.size),
+        modified: 'Just now',
+        content: e.target?.result as string
+      };
+
+      const currentFiles = getCurrentFiles();
+      if (currentPath.length === 0) {
+        setFiles([...files, newFile]);
+      } else {
+        const updatedFiles = addFileToPath(files, currentPath, newFile);
+        setFiles(updatedFiles);
+      }
     };
-    setFiles([...files, newFile]);
+    reader.readAsText(file);
   };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const getCurrentFiles = (): FileItem[] => {
+    let current = files;
+    for (const folder of currentPath) {
+      const found = current.find(f => f.name === folder);
+      if (found && found.children) {
+        current = found.children;
+      }
+    }
+    return current;
+  };
+
+  const addFileToPath = (fileList: FileItem[], path: string[], newFile: FileItem): FileItem[] => {
+    if (path.length === 0) {
+      return [...fileList, newFile];
+    }
+    return fileList.map(item => {
+      if (item.name === path[0] && item.type === 'folder') {
+        return {
+          ...item,
+          children: path.length === 1 
+            ? [...(item.children || []), newFile]
+            : addFileToPath(item.children || [], path.slice(1), newFile)
+        };
+      }
+      return item;
+    });
+  };
+
+  const navigateToFolder = (folderName: string) => {
+    setCurrentPath([...currentPath, folderName]);
+  };
+
+  const navigateBack = () => {
+    setCurrentPath(currentPath.slice(0, -1));
+  };
+
+  const handleDownload = (file: FileItem) => {
+    const blob = new Blob([file.content || ''], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const displayFiles = getCurrentFiles();
 
   return (
     <Card className="bg-card border-border">
@@ -77,7 +187,13 @@ const FileManager = ({ serverId }: FileManagerProps) => {
             <h3 className="text-lg font-semibold text-foreground">File Manager</h3>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleUpload}>
+            <input
+              type="file"
+              onChange={handleUpload}
+              className="hidden"
+              id="file-upload"
+            />
+            <Button size="sm" onClick={() => document.getElementById('file-upload')?.click()}>
               <Icon name="Upload" size={16} className="mr-2" />
               Upload
             </Button>
@@ -90,13 +206,31 @@ const FileManager = ({ serverId }: FileManagerProps) => {
       </div>
 
       <div className="p-4">
+        <div className="mb-4 flex items-center gap-2">
+          {currentPath.length > 0 && (
+            <Button size="sm" variant="outline" onClick={navigateBack}>
+              <Icon name="ArrowLeft" size={16} className="mr-2" />
+              Back
+            </Button>
+          )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Icon name="Home" size={16} />
+            <span>/</span>
+            {currentPath.map((folder, index) => (
+              <span key={index} className="flex items-center gap-2">
+                <span className="text-foreground font-medium">{folder}</span>
+                {index < currentPath.length - 1 && <span>/</span>}
+              </span>
+            ))}
+          </div>
+        </div>
         <div className="mb-4">
           <Input placeholder="Search files..." className="max-w-md" />
         </div>
 
         <ScrollArea className="h-[400px]">
           <div className="space-y-2">
-            {files.map((file) => (
+            {displayFiles.map((file) => (
               <div
                 key={file.id}
                 className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/50 transition-all bg-muted/20"
@@ -116,7 +250,11 @@ const FileManager = ({ serverId }: FileManagerProps) => {
                 </div>
 
                 <div className="flex gap-2">
-                  {file.type === 'file' && (
+                  {file.type === 'folder' ? (
+                    <Button size="sm" variant="outline" onClick={() => navigateToFolder(file.name)}>
+                      <Icon name="FolderOpen" size={16} />
+                    </Button>
+                  ) : (
                     <>
                       <Dialog>
                         <DialogTrigger asChild>
@@ -171,9 +309,11 @@ const FileManager = ({ serverId }: FileManagerProps) => {
                     </>
                   )}
 
-                  <Button size="sm" variant="outline">
-                    <Icon name="Download" size={16} />
-                  </Button>
+                  {file.type === 'file' && (
+                    <Button size="sm" variant="outline" onClick={() => handleDownload(file)}>
+                      <Icon name="Download" size={16} />
+                    </Button>
+                  )}
 
                   <Button
                     size="sm"

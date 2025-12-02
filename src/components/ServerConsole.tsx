@@ -31,26 +31,51 @@ const ServerConsole = ({ serverId, serverName, isRunning }: ServerConsoleProps) 
 
   useEffect(() => {
     if (isRunning) {
-      addLog(`[${serverName}] Starting server...`, 'info');
-      addLog(`[${serverName}] Loading properties...`, 'info');
-      
-      const interval = setInterval(() => {
-        const messages = [
-          { msg: '[Server thread/INFO] Loading world...', type: 'info' as const },
-          { msg: '[Server thread/INFO] Preparing spawn area: 23%', type: 'info' as const },
-          { msg: '[Server thread/INFO] Preparing spawn area: 45%', type: 'info' as const },
-          { msg: '[Server thread/INFO] Preparing spawn area: 67%', type: 'info' as const },
-          { msg: '[Server thread/INFO] Preparing spawn area: 89%', type: 'info' as const },
-          { msg: '[Server thread/INFO] Done! Server started successfully', type: 'success' as const },
-          { msg: '[Server thread/INFO] Player connected: Steve', type: 'info' as const },
+      const startupLogs = [
+        { msg: `[${serverName}] Starting Minecraft server...`, type: 'info' as const, delay: 0 },
+        { msg: '[Server thread/INFO] Loading properties from server.properties', type: 'info' as const, delay: 500 },
+        { msg: '[Server thread/INFO] Starting Minecraft server on *:25565', type: 'info' as const, delay: 1000 },
+        { msg: '[Server thread/INFO] Loading libraries, please wait...', type: 'info' as const, delay: 2000 },
+        { msg: '[Server thread/INFO] Preparing level "world"', type: 'info' as const, delay: 3500 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 0%', type: 'info' as const, delay: 5000 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 15%', type: 'info' as const, delay: 6000 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 32%', type: 'info' as const, delay: 7500 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 51%', type: 'info' as const, delay: 9000 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 68%', type: 'info' as const, delay: 10500 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 84%', type: 'info' as const, delay: 12000 },
+        { msg: '[Server thread/INFO] Preparing spawn area: 97%', type: 'info' as const, delay: 13500 },
+        { msg: '[Server thread/INFO] Time elapsed: 14782 ms', type: 'info' as const, delay: 14500 },
+        { msg: '[Server thread/INFO] Done (15.012s)! For help, type "help"', type: 'success' as const, delay: 15000 },
+        { msg: '[Server thread/INFO] Server is now online and accepting connections!', type: 'success' as const, delay: 15500 },
+      ];
+
+      const timeouts: NodeJS.Timeout[] = [];
+      startupLogs.forEach((log) => {
+        const timeout = setTimeout(() => addLog(log.msg, log.type), log.delay);
+        timeouts.push(timeout);
+      });
+
+      const onlineInterval = setInterval(() => {
+        const randomLogs = [
+          { msg: '[Server thread/INFO] Player Steve has connected', type: 'info' as const },
           { msg: '[Server thread/INFO] Steve joined the game', type: 'success' as const },
+          { msg: '[Server thread/INFO] <Steve> Hello everyone!', type: 'info' as const },
+          { msg: '[Server thread/INFO] Player Alex has connected', type: 'info' as const },
+          { msg: '[Server thread/INFO] Alex joined the game', type: 'success' as const },
+          { msg: '[Server thread/INFO] Saving the game (this may take a moment!)', type: 'info' as const },
+          { msg: '[Server thread/INFO] Saved the game', type: 'success' as const },
         ];
         
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        addLog(randomMessage.msg, randomMessage.type);
-      }, 3000);
+        if (Math.random() > 0.5) {
+          const randomLog = randomLogs[Math.floor(Math.random() * randomLogs.length)];
+          addLog(randomLog.msg, randomLog.type);
+        }
+      }, 8000);
 
-      return () => clearInterval(interval);
+      return () => {
+        timeouts.forEach(clearTimeout);
+        clearInterval(onlineInterval);
+      };
     }
   }, [isRunning, serverName]);
 
@@ -79,6 +104,17 @@ const ServerConsole = ({ serverId, serverName, isRunning }: ServerConsoleProps) 
     } else if (command.startsWith('say ')) {
       const message = command.substring(4);
       addLog(`[Server] ${message}`, 'info');
+    } else if (command === 'backup') {
+      addLog('[Backup] Starting backup process...', 'info');
+      setTimeout(() => {
+        addLog('[Backup] Saving world data...', 'info');
+        setTimeout(() => {
+          addLog('[Backup] Compressing files...', 'info');
+          setTimeout(() => {
+            addLog('[Backup] Backup completed! Saved to backups/backup_' + new Date().toISOString().split('T')[0] + '.zip', 'success');
+          }, 1500);
+        }, 1000);
+      }, 500);
     } else {
       addLog(`[Server thread/INFO] Unknown command: ${command}`, 'warn');
     }
@@ -154,7 +190,7 @@ const ServerConsole = ({ serverId, serverName, isRunning }: ServerConsoleProps) 
           </Button>
         </form>
         <div className="mt-2 text-xs text-muted-foreground">
-          Available commands: <span className="text-accent">op [player]</span>, <span className="text-accent">stop</span>, <span className="text-accent">restart</span>, <span className="text-accent">say [message]</span>
+          Available commands: <span className="text-accent">op [player]</span>, <span className="text-accent">stop</span>, <span className="text-accent">restart</span>, <span className="text-accent">say [message]</span>, <span className="text-accent">backup</span>
         </div>
       </div>
     </Card>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import Icon from '@/components/ui/icon';
 import ServerConsole from '@/components/ServerConsole';
 import FileManager from '@/components/FileManager';
+import AuthModal from '@/components/AuthModal';
 import {
   AreaChart,
   Area,
@@ -62,9 +63,35 @@ const loadBalancerData = [
 ];
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [servers, setServers] = useState<Server[]>(mockServers);
   const [selectedServer, setSelectedServer] = useState<Server>(mockServers[0]);
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('vps_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setIsAuthenticated(true);
+    } else {
+      setShowAuthModal(true);
+    }
+  }, []);
+
+  const handleLogin = (user: string) => {
+    localStorage.setItem('vps_username', user);
+    setUsername(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('vps_username');
+    setUsername('');
+    setIsAuthenticated(false);
+    setShowAuthModal(true);
+  };
 
   const toggleServerStatus = (serverId: string) => {
     setServers(
@@ -99,7 +126,10 @@ const Index = () => {
           server.id === serverId ? { ...server, status: 'running' } : server
         )
       );
-    }, 2000);
+      if (selectedServer.id === serverId) {
+        setSelectedServer({ ...selectedServer, status: 'running' });
+      }
+    }, 15000);
   };
 
   const getStatusColor = (status: string) => {
@@ -140,10 +170,15 @@ const Index = () => {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <Icon name="Server" size={24} className="text-white" />
               </div>
-              <h1 className="text-xl font-bold text-sidebar-foreground">VPS Panel</h1>
+              <div>
+                <h1 className="text-xl font-bold text-sidebar-foreground">VPS Panel</h1>
+                {isAuthenticated && (
+                  <p className="text-xs text-muted-foreground">@{username}</p>
+                )}
+              </div>
             </div>
 
-            <nav className="space-y-2">
+            <nav className="space-y-2 mb-4">
               {menuItems.map((item) => (
                 <button
                   key={item.tab}
@@ -159,8 +194,25 @@ const Index = () => {
                 </button>
               ))}
             </nav>
+
+            <div className="border-t border-sidebar-border pt-4">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent/50"
+                onClick={handleLogout}
+              >
+                <Icon name="LogOut" size={20} className="mr-3" />
+                <span>Logout</span>
+              </Button>
+            </div>
           </div>
         </aside>
+
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLogin={handleLogin}
+        />
 
         <main className="flex-1 ml-64 p-8 overflow-auto">
           {activeTab === 'dashboard' && (
@@ -245,15 +297,17 @@ const Index = () => {
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      {server.domain && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Connect:</span>
-                          <span className="text-foreground font-mono text-xs">{server.domain}</span>
+                      <div className="space-y-1">
+                        {server.domain && (
+                          <div className="p-2 bg-primary/10 rounded border border-primary/20">
+                            <p className="text-xs text-muted-foreground mb-1">Connect via DNS:</p>
+                            <p className="text-sm font-mono text-primary font-semibold">{server.domain}</p>
+                          </div>
+                        )}
+                        <div className="p-2 bg-muted/30 rounded border border-border">
+                          <p className="text-xs text-muted-foreground mb-1">Direct IP:</p>
+                          <p className="text-sm font-mono text-foreground">{server.ip}:25565</p>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">IP:</span>
-                        <span className="text-foreground font-mono text-xs">{server.ip}</span>
                       </div>
                     </div>
 
@@ -492,9 +546,18 @@ const Index = () => {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                      <p className="text-sm font-semibold text-primary mb-2">✅ SFTP is Active</p>
+                      <p className="text-xs text-muted-foreground">Use these credentials in FileZilla, WinSCP, or Cyberduck</p>
+                    </div>
                     <div>
                       <Label className="text-foreground mb-2">Host</Label>
-                      <Input value="sftp.vps-panel.com" readOnly className="font-mono" />
+                      <div className="flex gap-2">
+                        <Input value="sftp.vps-panel.com" readOnly className="font-mono" />
+                        <Button variant="outline" size="sm">
+                          <Icon name="Copy" size={16} />
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -508,11 +571,27 @@ const Index = () => {
                     </div>
                     <div>
                       <Label className="text-foreground mb-2">Username</Label>
-                      <Input value="admin" readOnly className="font-mono" />
+                      <div className="flex gap-2">
+                        <Input value={username || 'admin'} readOnly className="font-mono" />
+                        <Button variant="outline" size="sm">
+                          <Icon name="Copy" size={16} />
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label className="text-foreground mb-2">Password</Label>
-                      <Input type="password" value="••••••••••" readOnly />
+                      <div className="flex gap-2">
+                        <Input type="password" value="vps_secure_2024_pass" readOnly className="font-mono" />
+                        <Button variant="outline" size="sm">
+                          <Icon name="Copy" size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg border border-border">
+                      <p className="text-sm font-semibold text-foreground mb-2">Quick Connect String:</p>
+                      <code className="text-xs font-mono text-accent break-all">
+                        sftp://{username || 'admin'}@sftp.vps-panel.com:2022
+                      </code>
                     </div>
                     <Button>
                       <Icon name="RefreshCw" size={16} className="mr-2" />
@@ -557,6 +636,13 @@ const Index = () => {
                 <Card className="p-6 bg-card border-border">
                   <h3 className="text-lg font-semibold text-foreground mb-4">Account Information</h3>
                   <div className="space-y-4">
+                    <div>
+                      <Label className="text-foreground mb-2">Minecraft Username</Label>
+                      <Input value={username} readOnly className="font-mono bg-muted" />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This is your login username. Cannot be changed.
+                      </p>
+                    </div>
                     <div>
                       <Label className="text-foreground mb-2">Full Name</Label>
                       <Input defaultValue="John Doe" />
