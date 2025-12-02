@@ -10,6 +10,7 @@ import Icon from '@/components/ui/icon';
 import ServerConsole from '@/components/ServerConsole';
 import FileManager from '@/components/FileManager';
 import AuthModal from '@/components/AuthModal';
+import TopUpModal from '@/components/TopUpModal';
 import {
   AreaChart,
   Area,
@@ -66,6 +67,13 @@ const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [balance, setBalance] = useState(249.99);
+  const [paymentHistory, setPaymentHistory] = useState([
+    { id: '1', date: 'Dec 1, 2024', amount: 29.99, method: 'Credit Card', status: 'Paid' as const },
+    { id: '2', date: 'Nov 1, 2024', amount: 29.99, method: 'PayPal', status: 'Paid' as const },
+    { id: '3', date: 'Oct 1, 2024', amount: 29.99, method: 'Credit Card', status: 'Paid' as const },
+  ]);
   const [servers, setServers] = useState<Server[]>(mockServers);
   const [selectedServer, setSelectedServer] = useState<Server>(mockServers[0]);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -91,6 +99,21 @@ const Index = () => {
     setUsername('');
     setIsAuthenticated(false);
     setShowAuthModal(true);
+  };
+
+  const handleTopUp = (amount: number, method: string) => {
+    const newBalance = balance + amount;
+    setBalance(newBalance);
+    
+    const newPayment = {
+      id: String(Date.now()),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      amount: amount,
+      method: method === 'card' ? 'Credit Card' : method === 'paypal' ? 'PayPal' : method === 'crypto' ? 'Cryptocurrency' : 'Bank Transfer',
+      status: 'Paid' as const
+    };
+    
+    setPaymentHistory([newPayment, ...paymentHistory]);
   };
 
   const toggleServerStatus = (serverId: string) => {
@@ -212,6 +235,13 @@ const Index = () => {
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
           onLogin={handleLogin}
+        />
+
+        <TopUpModal
+          isOpen={showTopUpModal}
+          onClose={() => setShowTopUpModal(false)}
+          currentBalance={balance}
+          onTopUp={handleTopUp}
         />
 
         <main className="flex-1 ml-64 p-8 overflow-auto">
@@ -729,13 +759,27 @@ const Index = () => {
                 <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-2xl font-bold text-foreground mb-1">$249.99</h3>
+                      <h3 className="text-3xl font-bold text-foreground mb-1">${balance.toFixed(2)}</h3>
                       <p className="text-muted-foreground">Current balance</p>
                     </div>
-                    <Button>
-                      <Icon name="Plus" size={16} className="mr-2" />
-                      Top Up
+                    <Button onClick={() => setShowTopUpModal(true)} size="lg">
+                      <Icon name="Plus" size={20} className="mr-2" />
+                      Top Up Balance
                     </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-success">+${paymentHistory.filter(p => p.status === 'Paid').reduce((sum, p) => sum + p.amount, 0).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total Deposited</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-foreground">${(servers.length * 29.99).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Monthly Cost</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-primary">{Math.floor(balance / (servers.length * 29.99))} mo</p>
+                      <p className="text-xs text-muted-foreground mt-1">Remaining Time</p>
+                    </div>
                   </div>
                 </Card>
 
@@ -755,19 +799,26 @@ const Index = () => {
                 </Card>
 
                 <Card className="p-6 bg-card border-border">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Payment History</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Payment History</h3>
+                    <Button variant="outline" size="sm">
+                      <Icon name="Download" size={16} className="mr-2" />
+                      Export
+                    </Button>
+                  </div>
                   <div className="space-y-3">
-                    {[
-                      { date: 'Dec 1, 2024', amount: '$29.99', status: 'Paid' },
-                      { date: 'Nov 1, 2024', amount: '$29.99', status: 'Paid' },
-                      { date: 'Oct 1, 2024', amount: '$29.99', status: 'Paid' },
-                    ].map((payment, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border">
-                        <div>
-                          <p className="font-medium text-foreground">{payment.amount}</p>
-                          <p className="text-sm text-muted-foreground">{payment.date}</p>
+                    {paymentHistory.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border hover:border-primary/50 transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
+                            <Icon name="CheckCircle2" size={20} className="text-success" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">${payment.amount.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">{payment.date} • {payment.method}</p>
+                          </div>
                         </div>
-                        <Badge className="bg-success/20 text-success">{payment.status}</Badge>
+                        <Badge className="bg-success/20 text-success border-0">{payment.status}</Badge>
                       </div>
                     ))}
                   </div>
