@@ -860,7 +860,7 @@ const Index = () => {
                 <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-3xl font-bold text-foreground mb-1">${balance.toFixed(2)}</h3>
+                      <h3 className="text-3xl font-bold text-foreground mb-1">$3.00</h3>
                       <p className="text-muted-foreground">Current balance</p>
                     </div>
                     <Button onClick={() => setShowTopUpModal(true)} size="lg">
