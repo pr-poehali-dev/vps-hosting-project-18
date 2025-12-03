@@ -366,7 +366,7 @@ const Index = () => {
                         )}
                         <div className="p-2 bg-muted/30 rounded border border-border">
                           <p className="text-xs text-muted-foreground mb-1">Direct IP:</p>
-                          <p className="text-sm font-mono text-foreground">{server.ip}:25565</p>
+                          <p className="text-sm font-mono text-foreground">195.201.204.247:25867</p>
                         </div>
                       </div>
                     </div>
